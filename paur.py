@@ -66,4 +66,8 @@ def main() -> None:
         print(f'    {package.desc}')
 
 if __name__ == '__main__':
+    # TODO: add the ability to actually install
+    # TODO: go back to commit X, and only then install
+    # TODO: add the ability to update all packages
+    # TODO: add the ability to install regular `pacman` packages
     main()
