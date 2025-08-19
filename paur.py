@@ -59,7 +59,7 @@ def main() -> None:
         if package.out_of_date is not None:
             dt = datetime.fromtimestamp(package.out_of_date)
             print(f' {COL_PKG_OUTDATED}OUT-OF-DATE {dt.strftime("%Y/%m/%d")}{Style.RESET_ALL}')
-            # IMPROVE: actually parse when it was marked out of date, so that it can be compared to the current "system snapshot date"
+            # IMPROVE: compare to the current "system snapshot date"
         else:
             print()
 
