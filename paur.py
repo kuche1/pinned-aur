@@ -93,4 +93,5 @@ if __name__ == '__main__':
     # TODO: go back to commit X, and only then install
     # TODO: add the ability to update all packages
     # TODO: add the ability to install regular `pacman` packages
+    # IMPROVE: give the user the ability to use the latest commit instead OR select a commit
     main()
