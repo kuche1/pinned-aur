@@ -4,11 +4,13 @@ import requests
 from dataclasses import dataclass
 from colorama import Fore, Style
 from datetime import datetime
+import sys
 
 COL_PKG_NAME = Fore.CYAN
 COL_PKG_VER = Fore.BLUE
 COL_PKG_VOTES = Fore.GREEN
 COL_PKG_OUTDATED = Fore.RED
+COL_PKG_SELECTION = Fore.MAGENTA
 
 URL = 'https://aur.archlinux.org/rpc/'
 
@@ -53,8 +55,8 @@ def main() -> None:
     packages = search_package('vmware')
     packages.sort(key=lambda pkg: (pkg.votes, pkg.popularity))
 
-    for package in packages:
-        print(f'{COL_PKG_NAME}{package.name}{Style.RESET_ALL} {COL_PKG_VER}{package.version}{Style.RESET_ALL} {COL_PKG_VOTES}[+{package.votes} ~{round(package.popularity, 2)}]{Style.RESET_ALL}', end='')
+    for package_idx, package in reversed(list(enumerate(packages))):
+        print(f'{COL_PKG_SELECTION}{package_idx}{Style.RESET_ALL}/{COL_PKG_NAME}{package.name}{Style.RESET_ALL} {COL_PKG_VER}{package.version}{Style.RESET_ALL} {COL_PKG_VOTES}[+{package.votes} ~{round(package.popularity, 2)}]{Style.RESET_ALL}', end='')
 
         if package.out_of_date is not None:
             dt = datetime.fromtimestamp(package.out_of_date)
@@ -64,6 +66,27 @@ def main() -> None:
             print()
 
         print(f'    {package.desc}')
+
+    choice = input('> ')
+
+    try:
+        choice = int(choice)
+    except ValueError:
+        print('ERROR: Not a number') # IMPROVE: color in red
+        sys.exit(1)
+
+    if (choice < 0) or (choice >= len(packages)):
+        print('ERROR: Invalid choice') # IMPROVE: color in red
+        sys.exit(1)
+
+    package = packages[choice]
+
+    # TODO
+    # git clone https://aur.archlinux.org/vmware-workstation.git
+    # cd vmware-workstation
+    # git log
+    # git reset --hard COMMIT
+    # makepkg -si
 
 if __name__ == '__main__':
     # TODO: add the ability to actually install
