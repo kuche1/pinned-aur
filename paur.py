@@ -37,6 +37,32 @@ class Package:
     # maintainer: str
     out_of_date: None | int # int - unix timestamp
 
+    def print(self) -> None:
+        print(f'{COL_PKG_NAME}{self.name}{Style.RESET_ALL}', end='')
+
+        installed = get_installed_package(self.name)
+        if installed is not None:
+            installed_name, installed_version = installed
+            print(f' {COL_PKG_INSTALLED}[installed {installed_name} {installed_version}]{Style.RESET_ALL}', end='')
+
+        print(f' {COL_PKG_VER}{self.version}{Style.RESET_ALL}', end='')
+
+        print(f' {COL_PKG_VOTES}[', end='')
+        if self.source_is_pacman:
+            print(f'{COL_PKG_INSTALLED}pacman', end='')
+        else:
+            print(f'{self.votes} ~{round(self.popularity, 2)}', end='')
+        print(f'{COL_PKG_VOTES}]{Style.RESET_ALL}', end='')
+
+        if self.out_of_date is not None:
+            dt = datetime.fromtimestamp(self.out_of_date)
+            print(f' {COL_PKG_OUTDATED}[outdated {dt.strftime("%Y/%m/%d")}]{Style.RESET_ALL}', end='')
+            # IMPROVE: compare to the current "system snapshot date"
+
+        print()
+
+        print(f'    {self.desc}')
+
     def install(self) -> None:
         if self.source_is_pacman:
             # TODO: also include the repo (e.g. extra/name) ?
@@ -166,30 +192,8 @@ def get_mirrorlist_date() -> tuple[int, int, int]:
 
 def choose_package(packages: list[Package]) -> Package:
     for package_num, package in reversed(list(enumerate(packages, start=1))):
-        print(f'{COL_PKG_SELECTION}{package_num}{Style.RESET_ALL}/{COL_PKG_NAME}{package.name}{Style.RESET_ALL}', end='')
-
-        installed = get_installed_package(package.name)
-        if installed is not None:
-            installed_name, installed_version = installed
-            print(f' {COL_PKG_INSTALLED}[installed {installed_name} {installed_version}]{Style.RESET_ALL}', end='')
-
-        print(f' {COL_PKG_VER}{package.version}{Style.RESET_ALL}', end='')
-
-        print(f' {COL_PKG_VOTES}[', end='')
-        if package.source_is_pacman:
-            print(f'{COL_PKG_INSTALLED}pacman', end='')
-        else:
-            print(f'{package.votes} ~{round(package.popularity, 2)}', end='')
-        print(f'{COL_PKG_VOTES}]{Style.RESET_ALL}', end='')
-
-        if package.out_of_date is not None:
-            dt = datetime.fromtimestamp(package.out_of_date)
-            print(f' {COL_PKG_OUTDATED}[outdated {dt.strftime("%Y/%m/%d")}]{Style.RESET_ALL}', end='')
-            # IMPROVE: compare to the current "system snapshot date"
-
-        print()
-
-        print(f'    {package.desc}')
+        print(f'{COL_PKG_SELECTION}{package_num}{Style.RESET_ALL}/', end='')
+        package.print()
 
     try:
         choice = input('> ')
