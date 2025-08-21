@@ -110,12 +110,6 @@ def main(package_to_search_for: str) -> None:
         cwd = f'{cwd}/{package.name}'
         subprocess.run(['makepkg', '-si'], check=True, cwd=cwd)
 
-    # TODO
-    # cd vmware-workstation
-    # git log
-    # git reset --hard COMMIT
-    # makepkg -si
-
 if __name__ == '__main__':
     # TODO: add the ability to update all packages
     # TODO: add the ability to install regular `pacman` packages
