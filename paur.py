@@ -64,18 +64,18 @@ def main(package_to_search_for: str) -> None:
     packages = search_package(package_to_search_for)
     packages.sort(reverse=True, key=lambda pkg: (pkg.votes, pkg.popularity))
 
-    for package_idx, package in reversed(list(enumerate(packages))):
-        print(f'{COL_PKG_SELECTION}{package_idx}{Style.RESET_ALL}/{COL_PKG_NAME}{package.name}{Style.RESET_ALL}', end='')
+    for package_num, package in reversed(list(enumerate(packages, start=1))):
+        print(f'{COL_PKG_SELECTION}{package_num}{Style.RESET_ALL}/{COL_PKG_NAME}{package.name}{Style.RESET_ALL}', end='')
 
         installed_version = get_installed_package_version(package.name)
         if installed_version is not None:
-            print(f' {COL_PKG_INSTALLED}[installed: {installed_version}]{Style.RESET_ALL}', end='')
+            print(f' {COL_PKG_INSTALLED}[installed {installed_version}]{Style.RESET_ALL}', end='')
 
         print(f' {COL_PKG_VER}{package.version}{Style.RESET_ALL} {COL_PKG_VOTES}[+{package.votes} ~{round(package.popularity, 2)}]{Style.RESET_ALL}', end='')
 
         if package.out_of_date is not None:
             dt = datetime.fromtimestamp(package.out_of_date)
-            print(f' {COL_PKG_OUTDATED}OUT-OF-DATE {dt.strftime("%Y/%m/%d")}{Style.RESET_ALL}', end='')
+            print(f' {COL_PKG_OUTDATED}[outdated {dt.strftime("%Y/%m/%d")}]{Style.RESET_ALL}', end='')
             # IMPROVE: compare to the current "system snapshot date"
 
         print()
@@ -93,29 +93,34 @@ def main(package_to_search_for: str) -> None:
         print('ERROR: Not a number') # IMPROVE: color in red
         sys.exit(1)
 
+    choice -= 1
+
     if (choice < 0) or (choice >= len(packages)):
         print('ERROR: Invalid choice') # IMPROVE: color in red
         sys.exit(1)
 
     package = packages[choice]
-    print(f'{package=}')
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.run(['git', 'clone', f'https://aur.archlinux.org/{package.name}.git'], check=True)
+        cwd = tmpdir
+        subprocess.run(['git', 'clone', f'https://aur.archlinux.org/{package.name}.git'], check=True, cwd=cwd)
+
+        # TODO: go back to commit X
+
+        cwd = f'{cwd}/{package.name}'
+        subprocess.run(['makepkg', '-si'], check=True, cwd=cwd)
 
     # TODO
-    # git clone https://aur.archlinux.org/vmware-workstation.git
     # cd vmware-workstation
     # git log
     # git reset --hard COMMIT
     # makepkg -si
 
 if __name__ == '__main__':
-    # TODO: add the ability to actually install
-    # TODO: go back to commit X, and only then install
     # TODO: add the ability to update all packages
     # TODO: add the ability to install regular `pacman` packages
     # IMPROVE: give the user the ability to use the latest commit instead OR select a commit
+    # TODO: add the ability to remove an aur package, alongside ALL it's dependencies
     parser = argparse.ArgumentParser()
     parser.add_argument('package', type=str, help='Package to search for')
     args = parser.parse_args()
