@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from colorama import Fore, Style
 from datetime import datetime
 import sys
+import tempfile
 
 COL_PKG_NAME = Fore.CYAN
 COL_PKG_VER = Fore.BLUE
@@ -38,8 +39,7 @@ def search_package(name: str) -> list[Package]:
     }
 
     response = requests.get(URL, params=params)
-
-    response.raise_for_status() # IMPROVE: idk what this function is
+    response.raise_for_status()
 
     packages = []
 
@@ -80,6 +80,11 @@ def main() -> None:
         sys.exit(1)
 
     package = packages[choice]
+
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        term(['git', 'clone', f'https://aur.archlinux.org/{package.name}.git'])
+
 
     # TODO
     # git clone https://aur.archlinux.org/vmware-workstation.git
