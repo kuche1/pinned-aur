@@ -53,12 +53,12 @@ def search_package(name: str) -> list[Package]:
 
     return packages
 
-def get_installed_package_version(name: str) -> None | str:
+def get_installed_package(name: str) -> None | tuple[str, str]:
     proc = subprocess.run(['pacman', '-Q', name], check=False, capture_output=True)
     if proc.returncode != 0:
         return None
-    _name, version = proc.stdout.decode().strip().split(' ')
-    return version
+    name, version = proc.stdout.decode().strip().split(' ')
+    return name, version
 
 def main(package_to_search_for: str) -> None:
     packages = search_package(package_to_search_for)
@@ -67,9 +67,10 @@ def main(package_to_search_for: str) -> None:
     for package_num, package in reversed(list(enumerate(packages, start=1))):
         print(f'{COL_PKG_SELECTION}{package_num}{Style.RESET_ALL}/{COL_PKG_NAME}{package.name}{Style.RESET_ALL}', end='')
 
-        installed_version = get_installed_package_version(package.name)
-        if installed_version is not None:
-            print(f' {COL_PKG_INSTALLED}[installed {installed_version}]{Style.RESET_ALL}', end='')
+        installed = get_installed_package(package.name)
+        if installed is not None:
+            installed_name, installed_version = installed
+            print(f' {COL_PKG_INSTALLED}[installed {installed_name} {installed_version}]{Style.RESET_ALL}', end='')
 
         print(f' {COL_PKG_VER}{package.version}{Style.RESET_ALL} {COL_PKG_VOTES}[+{package.votes} ~{round(package.popularity, 2)}]{Style.RESET_ALL}', end='')
 
@@ -103,11 +104,35 @@ def main(package_to_search_for: str) -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         cwd = tmpdir
+
+        ##### clone
+
         subprocess.run(['git', 'clone', f'https://aur.archlinux.org/{package.name}.git'], check=True, cwd=cwd)
-
-        # TODO: go back to commit X
-
         cwd = f'{cwd}/{package.name}'
+
+        ##### get latest commit
+
+        latest_commit = subprocess.run(['git', 'rev-list', '-1', 'HEAD'], capture_output=True, check=True, cwd=cwd)
+        latest_commit = latest_commit.stdout.strip()
+
+        ##### get latest commit, before a certain date
+
+        proc = subprocess.run(['git', 'rev-list', '-1', '--before=2025-08-19 23:59Z', 'HEAD'], capture_output=True, check=True, cwd=cwd)
+        # this `Z` is supposed to pin the timezone to UTC, rather than use the local time
+        # TODO: actually go to a certain date, rather than to a hardcoded date
+
+        if proc.stdout is None:
+            raise NotImplementedError
+            # TODO: let the user decide weather to use the latest commit OR to select a different commit
+
+        relevant_commit = proc.stdout.strip()
+
+        ##### reset to relevant commit
+
+        proc = subprocess.run(['git', 'reset', '--hard', relevant_commit], check=True, cwd=cwd)
+
+        ##### install
+
         subprocess.run(['makepkg', '-si'], check=True, cwd=cwd)
 
 if __name__ == '__main__':
