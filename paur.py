@@ -107,8 +107,12 @@ class Package:
 def search_for_package_in_pacman(package_name: str) -> list[Package]:
     packages = []
 
-    proc = subprocess.run(['pacman', '-Ss', '--', package_name], capture_output=True, check=True)
+    proc = subprocess.run(['pacman', '-Ss', '--', package_name], capture_output=True, check=False)
+    if proc.returncode != 0:
+        return packages
+
     lines = proc.stdout.decode().splitlines()
+
     for line_data, desc in zip(lines[0::2], lines[1::2], strict=True):
         i = line_data.index('/')
         repo = line_data[:i]
