@@ -15,6 +15,7 @@ COL_PKG_VOTES = Fore.GREEN
 COL_PKG_OUTDATED = Fore.RED
 COL_PKG_SELECTION = Fore.MAGENTA
 COL_PKG_INSTALLED = Fore.YELLOW
+COL_TARGET_DATE = Fore.LIGHTMAGENTA_EX
 
 AUR_URL = 'https://aur.archlinux.org/rpc/'
 
@@ -63,14 +64,12 @@ class Package:
 
         print(f'    {self.desc}')
 
-    def install(self) -> None:
+    def install(self, mirrirlist_date: "MirrorlistDate") -> None:
         if self.source_is_pacman:
             # TODO: also include the repo (e.g. extra/name) ?
             subprocess.run(['sudo', 'pacman', '-S', '--', self.name], check=True)
 
         else:
-            target_year, target_month, target_day = get_mirrorlist_date()
-
             with tempfile.TemporaryDirectory() as tmpdir:
                 cwd = tmpdir
 
@@ -86,7 +85,7 @@ class Package:
 
                 ##### get latest commit, before a certain date
 
-                proc = subprocess.run(['git', 'rev-list', '-1', f'--before={target_year}-{target_month}-{target_day} 23:59Z', 'HEAD'], capture_output=True, check=True, cwd=cwd)
+                proc = subprocess.run(['git', 'rev-list', '-1', f'--before={mirrirlist_date.year}-{mirrirlist_date.month}-{mirrirlist_date.day} 23:59Z', 'HEAD'], capture_output=True, check=True, cwd=cwd)
                 # this `Z` is supposed to pin the timezone to UTC, rather than use the local time
                 # TODO: actually go to a certain date, rather than to a hardcoded date
 
@@ -103,6 +102,46 @@ class Package:
                 ##### install
 
                 subprocess.run(['makepkg', '-si'], check=True, cwd=cwd)
+
+@dataclass
+class MirrorlistDate:
+    year: int
+    month: int
+    day: int
+
+    def __init__(self) -> None:
+        with open(MIRRORLIST_FILE) as f:
+            data = f.read().splitlines()
+
+        for line in data:
+            if line.startswith(MIRRORLIST_PREFIX):
+                line = line[len(MIRRORLIST_PREFIX):]
+
+                i = line.index('/')
+                year = line[:i]
+                line = line[i+1:]
+                year = int(year)
+
+                i = line.index('/')
+                month = line[:i]
+                line = line[i+1:]
+                month = int(month)
+
+                i = line.index('/')
+                day = line[:i]
+                line = line[i+1:]
+                day = int(day)
+
+                # print(year, month, day)
+
+                self.year = year
+                self.month = month
+                self.day = day
+                return
+                # TODO: and what if we have that same line more than 1 time ?
+
+        raise NotImplementedError
+        # TODO(vb): in this case, just act as if there is no date
 
 def search_for_package_in_pacman(package_name: str) -> list[Package]:
     packages = []
@@ -163,44 +202,14 @@ def get_installed_package(name: str) -> None | tuple[str, str]:
     name, version = proc.stdout.decode().strip().split(' ')
     return name, version
 
-def get_mirrorlist_date() -> tuple[int, int, int]:
-    with open(MIRRORLIST_FILE) as f:
-        data = f.read().splitlines()
+def choose_package(packages: list[Package], mirrirlist_date: MirrorlistDate) -> Package:
 
-    for line in data:
-        if line.startswith(MIRRORLIST_PREFIX):
-            line = line[len(MIRRORLIST_PREFIX):]
-
-            i = line.index('/')
-            year = line[:i]
-            line = line[i+1:]
-            year = int(year)
-
-            i = line.index('/')
-            month = line[:i]
-            line = line[i+1:]
-            month = int(month)
-
-            i = line.index('/')
-            day = line[:i]
-            line = line[i+1:]
-            day = int(day)
-
-            print(year, month, day)
-
-            return year, month, day
-            # TODO: and what if we have that same line more than 1 time ?
-
-    raise NotImplementedError
-    # TODO(vb): in this case, just act as if there is no date
-
-def choose_package(packages: list[Package]) -> Package:
     for package_num, package in reversed(list(enumerate(packages, start=1))):
         print(f'{COL_PKG_SELECTION}{package_num}{Style.RESET_ALL}/', end='')
         package.print()
 
     try:
-        choice = input('> ')
+        choice = input(f'{COL_TARGET_DATE}[{mirrirlist_date.year}/{mirrirlist_date.month}/{mirrirlist_date.day}]{Style.RESET_ALL} > ')
     except (KeyboardInterrupt, EOFError):
         sys.exit(0)
 
@@ -222,12 +231,13 @@ def main(package_to_search_for: str) -> None:
     packages = search_for_package(package_to_search_for)
     packages.sort(reverse=True, key=lambda pkg: (pkg.source_is_pacman, pkg.votes, pkg.popularity))
 
-    package = choose_package(packages)
-    package.install()
+    mirrorlist_date = MirrorlistDate()
+
+    package = choose_package(packages, mirrorlist_date)
+    package.install(mirrorlist_date)
 
 if __name__ == '__main__':
     # TODO: add the ability to update all packages
-    # TODO: add the ability to install regular `pacman` packages
     # IMPROVE: give the user the ability to use the latest commit instead OR select a commit
     # TODO: add the ability to remove an aur package, alongside ALL it's dependencies
     # TODO: actually, do the dependencies even work ? maybe we should look for them, then install them with `--asdep`
