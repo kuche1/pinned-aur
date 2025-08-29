@@ -66,6 +66,13 @@ class Package:
         #assert name == name2 # perhaps this would fail with the `-git` and `-bin` packages
         return cls.from_pacman(name, "UNKNOWN: locally installed package", version)
 
+    @classmethod
+    def from_aur_exact(cls, name: str) -> "Package | None":
+        for package in search_for_package_in_aur(name):
+            if package.name == name: # TODO: assuming that it's only going to be one package (which BTW should be the case)
+                return package
+        return None
+
     def print(self) -> None:
         print(f'{COL_PKG_NAME}{self.name}{Style.RESET_ALL}', end='')
 
@@ -263,9 +270,12 @@ def choose_package(packages: list[Package], mirrirlist_date: MirrorlistDate) -> 
     return packages[choice]
 
 def search_and_install_package(package_to_search_for: str) -> None:
+    print('Searching in AUR...')
     packages = search_for_package(package_to_search_for)
+    print('Sorting AUR results...')
     packages.sort(reverse=True, key=lambda pkg: (pkg.source_is_pacman, pkg.votes, pkg.popularity))
 
+    print('Getting mirrorlist date...')
     mirrorlist_date = MirrorlistDate()
 
     package = choose_package(packages, mirrorlist_date)
@@ -290,10 +300,22 @@ def full_aur_upgrade() -> None:
 
         aur_packages.append(package)
 
-    for package in aur_packages:
-        print(f'{package=}')
+    # for package in aur_packages:
+    #     print(f'{package=}')
 
-    ... # TODO: implement
+    for package in aur_packages:
+        latest_version = Package.from_aur_exact(package.name)
+        if latest_version is None:
+            print(f'WARNING: could not find package in AUR: {package.name}')
+            continue
+
+        if latest_version.version == package.version:
+            continue
+
+        print('version missmatch:')
+        print(f'    {package=}')
+        print(f'    {latest_version=}')
+        ... # TODO: give a prompt and install the latest version
 
 if __name__ == '__main__':
     # TODO: add the ability to update all packages
@@ -311,4 +333,7 @@ if __name__ == '__main__':
             sys.exit(1)
         full_aur_upgrade()
     else:
+        if args.package is None:
+            print(f'ERROR: you need to specify a package to search for')
+            sys.exit(1)
         search_and_install_package(args.package)
