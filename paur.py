@@ -51,6 +51,12 @@ class Package:
         # TODO: hacked votes
         return cls(name, desc, True, -1, float('inf'), version, None)
 
+    @classmethod
+    def from_pacman_foreign(cls, name: str, version: str) -> "Package | None":
+        if name.endswith('-debug'):
+            return None
+        return cls.from_pacman(name, "UNKNOWN: foreign package", version)
+
     def print(self) -> None:
         print(f'{COL_PKG_NAME}{self.name}{Style.RESET_ALL}', end='')
 
@@ -182,7 +188,7 @@ def search_for_package_in_pacman(package_name: str) -> list[Package]:
 
     for line_data, desc in zip(lines[0::2], lines[1::2], strict=True):
         i = line_data.index('/')
-        repo = line_data[:i]
+        _pacman_repo = line_data[:i]
         line_data = line_data[i+1:]
 
         i = line_data.index(' ')
@@ -272,8 +278,19 @@ def full_aur_upgrade() -> None:
     proc = subprocess.run(['pacman', '-Qm'], check=True, capture_output=True)
     # I assume that this returns 0 if there are 0 packages
 
-    data = proc.stdout.decode().splitlines()
-    breakpoint()
+    aur_packages = []
+
+    for data in proc.stdout.decode().splitlines():
+        package, version = data.split(' ')
+
+        package = Package.from_pacman_foreign(package, version)
+        if package is None:
+            continue
+
+        aur_packages.append(package)
+
+    for package in aur_packages:
+        print(f'{package=}')
 
     ... # TODO: implement
 
