@@ -43,8 +43,13 @@ class Package:
     out_of_date: None | int # int - unix timestamp
 
     @classmethod
-    def from_json_data(cls, data: dict) -> "Package":
+    def from_aur_json_data(cls, data: dict) -> "Package":
         return cls(data['Name'], data['Description'], False, data['NumVotes'], data['Popularity'], data['Version'], data['OutOfDate'])
+
+    @classmethod
+    def from_pacman(cls, name: str, desc: str, version: str) -> "Package":
+        # TODO: hacked votes
+        return cls(name, desc, True, -1, float('inf'), version, None)
 
     def print(self) -> None:
         print(f'{COL_PKG_NAME}{self.name}{Style.RESET_ALL}', end='')
@@ -188,8 +193,7 @@ def search_for_package_in_pacman(package_name: str) -> list[Package]:
         if ' ' in version:
             version = version[:version.index(' ')]
 
-        # TODO: hacked votes
-        packages.append(Package(name, desc, True, -1, float('inf'), version, None))
+        packages.append(Package.from_pacman(name, desc, version))
 
     return packages
 
@@ -208,7 +212,7 @@ def search_for_package_in_aur(package_name: str) -> list[Package]:
     for data in response.json()['results']:
         # for example:
         # {'Description': 'Zoom VDI VMWare plugin', 'FirstSubmitted': 1706807860, 'ID': 1528188, 'LastModified': 1724630068, 'Maintainer': 'vachicorne', 'Name': 'zoom-vmware-plugin', 'NumVotes': 0, 'OutOfDate': None, 'PackageBase': 'zoom-vmware-plugin', 'PackageBaseID': 202104, 'Popularity': 0, 'URL': 'https://support.zoom.us/hc/en-us/articles/4415057249549-VDI-releases-and-downloads', 'URLPath': '/cgit/aur.git/snapshot/zoom-vmware-plugin.tar.gz', 'Version': '6.0.10-1'}
-        packages.append(Package.from_json_data(data))
+        packages.append(Package.from_aur_json_data(data))
 
     return packages
 
