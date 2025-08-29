@@ -57,13 +57,21 @@ class Package:
             return None
         return cls.from_pacman(name, "UNKNOWN: foreign package", version)
 
+    @classmethod
+    def from_pacman_installed(cls, name: str) -> "Package | None":
+        proc = subprocess.run(['pacman', '-Q', '--', name], check=False, capture_output=True)
+        if proc.returncode != 0:
+            return None
+        _name2, version = proc.stdout.decode().strip().split(' ')
+        #assert name == name2 # perhaps this would fail with the `-git` and `-bin` packages
+        return cls.from_pacman(name, "UNKNOWN: locally installed package", version)
+
     def print(self) -> None:
         print(f'{COL_PKG_NAME}{self.name}{Style.RESET_ALL}', end='')
 
-        installed = get_installed_package(self.name)
+        installed = Package.from_pacman_installed(self.name)
         if installed is not None:
-            installed_name, installed_version = installed
-            print(f' {COL_PKG_INSTALLED}[installed {installed_name} {installed_version}]{Style.RESET_ALL}', end='')
+            print(f' {COL_PKG_INSTALLED}[installed {installed.name} {installed.version}]{Style.RESET_ALL}', end='')
 
         print(f' {COL_PKG_VER}{self.version}{Style.RESET_ALL}', end='')
 
@@ -226,13 +234,6 @@ def search_for_package(package: str) -> list[Package]:
     packages = search_for_package_in_pacman(package)
     packages.extend(search_for_package_in_aur(package))
     return packages
-
-def get_installed_package(name: str) -> None | tuple[str, str]:
-    proc = subprocess.run(['pacman', '-Q', '--', name], check=False, capture_output=True)
-    if proc.returncode != 0:
-        return None
-    name, version = proc.stdout.decode().strip().split(' ')
-    return name, version
 
 def choose_package(packages: list[Package], mirrirlist_date: MirrorlistDate) -> Package | None:
     if len(packages) == 0:
