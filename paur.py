@@ -22,6 +22,10 @@ AUR_URL = 'https://aur.archlinux.org/rpc/'
 MIRRORLIST_FILE = '/etc/pacman.d/mirrorlist'
 MIRRORLIST_PREFIX = 'Server=https://archive.archlinux.org/repos/'
 
+##########
+########## class
+##########
+
 @dataclass
 class Package:
     # there's more data in the json response,
@@ -37,6 +41,10 @@ class Package:
     version: str
     # maintainer: str
     out_of_date: None | int # int - unix timestamp
+
+    @classmethod
+    def from_json_data(cls, data: dict) -> "Package":
+        return cls(data['Name'], data['Description'], False, data['NumVotes'], data['Popularity'], data['Version'], data['OutOfDate'])
 
     def print(self) -> None:
         print(f'{COL_PKG_NAME}{self.name}{Style.RESET_ALL}', end='')
@@ -143,6 +151,21 @@ class MirrorlistDate:
         raise NotImplementedError
         # TODO(vb): in this case, just act as if there is no date
 
+##########
+########## function
+##########
+
+#####
+##### function: parse
+#####
+
+def parse_local_package():
+    ... # TODO
+
+#####
+##### function: other
+#####
+
 def search_for_package_in_pacman(package_name: str) -> list[Package]:
     packages = []
 
@@ -185,8 +208,7 @@ def search_for_package_in_aur(package_name: str) -> list[Package]:
     for data in response.json()['results']:
         # for example:
         # {'Description': 'Zoom VDI VMWare plugin', 'FirstSubmitted': 1706807860, 'ID': 1528188, 'LastModified': 1724630068, 'Maintainer': 'vachicorne', 'Name': 'zoom-vmware-plugin', 'NumVotes': 0, 'OutOfDate': None, 'PackageBase': 'zoom-vmware-plugin', 'PackageBaseID': 202104, 'Popularity': 0, 'URL': 'https://support.zoom.us/hc/en-us/articles/4415057249549-VDI-releases-and-downloads', 'URLPath': '/cgit/aur.git/snapshot/zoom-vmware-plugin.tar.gz', 'Version': '6.0.10-1'}
-        package = Package(data['Name'], data['Description'], False, data['NumVotes'], data['Popularity'], data['Version'], data['OutOfDate'])
-        packages.append(package)
+        packages.append(Package.from_json_data(data))
 
     return packages
 
@@ -202,7 +224,9 @@ def get_installed_package(name: str) -> None | tuple[str, str]:
     name, version = proc.stdout.decode().strip().split(' ')
     return name, version
 
-def choose_package(packages: list[Package], mirrirlist_date: MirrorlistDate) -> Package:
+def choose_package(packages: list[Package], mirrirlist_date: MirrorlistDate) -> Package | None:
+    if len(packages) == 0:
+        return None
 
     for package_num, package in reversed(list(enumerate(packages, start=1))):
         print(f'{COL_PKG_SELECTION}{package_num}{Style.RESET_ALL}/', end='')
@@ -227,14 +251,27 @@ def choose_package(packages: list[Package], mirrirlist_date: MirrorlistDate) -> 
 
     return packages[choice]
 
-def main(package_to_search_for: str) -> None:
+def search_and_install_package(package_to_search_for: str) -> None:
     packages = search_for_package(package_to_search_for)
     packages.sort(reverse=True, key=lambda pkg: (pkg.source_is_pacman, pkg.votes, pkg.popularity))
 
     mirrorlist_date = MirrorlistDate()
 
     package = choose_package(packages, mirrorlist_date)
+    if package is None:
+        print('No packages found')
+        return
+
     package.install(mirrorlist_date)
+
+def full_aur_upgrade() -> None:
+    proc = subprocess.run(['pacman', '-Qm'], check=True, capture_output=True)
+    # I assume that this returns 0 if there are 0 packages
+
+    data = proc.stdout.decode().splitlines()
+    breakpoint()
+
+    ... # TODO: implement
 
 if __name__ == '__main__':
     # TODO: add the ability to update all packages
@@ -242,6 +279,14 @@ if __name__ == '__main__':
     # TODO: add the ability to remove an aur package, alongside ALL it's dependencies
     # TODO: actually, do the dependencies even work ? maybe we should look for them, then install them with `--asdep`
     parser = argparse.ArgumentParser()
-    parser.add_argument('package', type=str, help='Package to search for')
+    parser.add_argument('package', type=str, nargs='?', help='Package to search for')
+    parser.add_argument('--upgrade-aur', action='store_true')
     args = parser.parse_args()
-    main(args.package)
+
+    if args.upgrade_aur:
+        if args.package is not None:
+            print(f'ERROR: a specific package was specified during full AUR upgrade')
+            sys.exit(1)
+        full_aur_upgrade()
+    else:
+        search_and_install_package(args.package)
